@@ -12,3 +12,5 @@ data/processed/
 *.zip
 *.npz
 *.pt
+!pretrained/
+!pretrained/*.pt
