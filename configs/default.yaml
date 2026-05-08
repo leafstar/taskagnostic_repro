@@ -1,0 +1,66 @@
+seed: 42
+
+data:
+  root: ${CAMARGO_DATA_ROOT}/raw
+  cache_dir: ${CAMARGO_DATA_ROOT}/processed
+  sample_rate_hz: 200
+  max_subjects: null
+  participant_glob: "*"
+  trial_glob: "**/ik/*.mat"
+  exclude_path_patterns:
+    - "static"
+  include_left_mirror: true
+  task_label_from_path: true
+  validation:
+    mode: random
+    val_fraction: 0.2
+    lopo_subject: null
+
+  # The Camargo release has appeared in a few MAT struct layouts.
+  # These regexes are intentionally broad; refine them after running
+  # `python data/camargo_loader.py --inspect <trial.mat>` on local files.
+  feature_patterns:
+    - "hip_flexion_[rl]$|knee_angle_[rl]$|ankle_angle_[rl]$"
+    - "hip_flexion_[rl]_vel$|knee_angle_[rl]_vel$|ankle_angle_[rl]_vel$"
+    - "Accel|Gyro"
+  target_patterns:
+    hip: "hip_flexion_r_moment"
+    knee: "knee_angle_r_moment"
+
+  # If a local inspection shows named channels with opposite left-leg signs,
+  # place exact channel-name regexes here. Empty means no explicit sign flips.
+  mirror_feature_sign_patterns: []
+  mirror_target_sign_patterns: []
+
+window:
+  length: 250
+  stride: 1
+  label_at: last
+
+model:
+  filters: 64
+  kernel_size: 5
+  num_blocks: 5
+  dropout: 0.2
+  output_dim: 2
+  use_weight_norm: true
+
+train:
+  epochs: 100
+  batch_size: 256
+  lr: 0.0001
+  weight_decay: 0.0
+  num_workers: 2
+  device: auto
+  log_dir: runs/default
+  checkpoint_dir: checkpoints/default
+  grad_clip_norm: 1.0
+  save_every: 10
+  limit_train_windows: null
+  limit_val_windows: null
+
+evaluate:
+  checkpoint: checkpoints/default/best.pt
+  batch_size: 256
+  split: val
+  output_csv: reports/eval_metrics.csv

@@ -1,0 +1,12 @@
+torch>=2.0
+numpy>=1.24
+scipy>=1.10
+h5py>=3.8
+mat73>=0.62
+einops>=0.7
+tensorboard>=2.14
+PyYAML>=6.0
+pandas>=2.0
+tqdm>=4.65
+pytest>=7.0
+mat-io>=0.4.2
