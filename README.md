@@ -268,6 +268,18 @@ hip RMSE     0.184 Nm/kg
 knee RMSE    0.203 Nm/kg
 ```
 
+Benchmark inference latency:
+
+```bash
+python tools/benchmark_inference.py \
+  --checkpoint pretrained/camargo_ab06_ab10_lopo_AB10_best.pt \
+  --device cuda
+```
+
+On an RTX 4080 SUPER, the pretrained model takes about `1.9 ms` for a single
+`1 x 36 x 250` window and over `100k windows/s` when batched. CPU single-window
+latency is about `2.5 ms` on the local test machine.
+
 ## Evaluate
 
 ```bash
