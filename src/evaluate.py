@@ -19,7 +19,7 @@ if str(ROOT) not in sys.path:
 from src.dataset import CamargoWindowDataset, cache_trials, load_cached_trials, split_trials
 from src.model import build_model
 from src.train import _collate
-from src.utils import choose_device, load_config, r2_score, resolve_path, rmse
+from src.utils import choose_device, load_config, r2_score, resolve_path, rmse, target_metric_labels
 
 
 def _predict(model: torch.nn.Module, loader: DataLoader, device: torch.device) -> dict[str, list[Any]]:
@@ -39,11 +39,12 @@ def _predict(model: torch.nn.Module, loader: DataLoader, device: torch.device) -
     return out
 
 
-def _metric_rows(preds: dict[str, list[Any]]) -> list[dict[str, Any]]:
+def _metric_rows(preds: dict[str, list[Any]], target_names: list[str]) -> list[dict[str, Any]]:
     y_true = preds["y_true"][0]
     y_pred = preds["y_pred"][0]
     participants = np.array(preds["participant"])
     tasks = np.array(preds["task"])
+    labels = target_metric_labels(target_names)
     rows: list[dict[str, Any]] = []
 
     def add_row(group: str, key: str, mask: np.ndarray) -> None:
@@ -51,17 +52,11 @@ def _metric_rows(preds: dict[str, list[Any]]) -> list[dict[str, Any]]:
             return
         r2 = r2_score(y_true[mask], y_pred[mask])
         e = rmse(y_true[mask], y_pred[mask])
-        rows.append(
-            {
-                "group": group,
-                "key": key,
-                "n_windows": int(mask.sum()),
-                "r2_hip": float(r2[0]),
-                "r2_knee": float(r2[1]),
-                "rmse_hip": float(e[0]),
-                "rmse_knee": float(e[1]),
-            }
-        )
+        row: dict[str, Any] = {"group": group, "key": key, "n_windows": int(mask.sum())}
+        for i, label in enumerate(labels):
+            row[f"r2_{label}"] = float(r2[i])
+            row[f"rmse_{label}"] = float(e[i])
+        rows.append(row)
 
     add_row("all", "all", np.ones(len(y_true), dtype=bool))
     for participant in sorted(set(participants.tolist())):
@@ -100,7 +95,7 @@ def evaluate(config: dict[str, Any], checkpoint_path: str | Path | None = None) 
         collate_fn=_collate,
     )
     preds = _predict(model, loader, device)
-    rows = _metric_rows(preds)
+    rows = _metric_rows(preds, dataset.target_names)
     out_csv = resolve_path(config["evaluate"]["output_csv"])
     out_csv.parent.mkdir(parents=True, exist_ok=True)
     with out_csv.open("w", newline="", encoding="utf-8") as f:
@@ -118,10 +113,11 @@ def main() -> None:
     cfg = load_config(args.config)
     rows = evaluate(cfg, checkpoint_path=args.checkpoint)
     for row in rows:
+        labels = [key[3:] for key in row if key.startswith("r2_")]
+        metric_text = " ".join(f"{label}={row[f'r2_{label}']:.3f}/{row[f'rmse_{label}']:.3f}" for label in labels)
         print(
             f"{row['group']:>11s} {row['key']:<16s} n={row['n_windows']:<8d} "
-            f"R2 hip/knee={row['r2_hip']:.3f}/{row['r2_knee']:.3f} "
-            f"RMSE hip/knee={row['rmse_hip']:.3f}/{row['rmse_knee']:.3f}"
+            f"R2/RMSE {metric_text}"
         )
 
 

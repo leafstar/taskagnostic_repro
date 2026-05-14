@@ -145,6 +145,25 @@ The default hyperparameters follow the requested estimator:
 - 250-sample windows at 200 Hz
 - MSE loss
 
+To train a bilateral hip estimator instead of the default right hip/right knee
+estimator, use:
+
+```bash
+python src/dataset.py --config configs/bilateral_hip.yaml --force-cache
+python src/train.py --config configs/bilateral_hip.yaml
+```
+
+That config keeps the same 36 input channels, but changes the two regression
+targets to:
+
+```text
+id.hip_flexion_r_moment
+id.hip_flexion_l_moment
+```
+
+The bilateral hip config disables left-leg mirror augmentation because both
+left and right hip moments are explicit output labels.
+
 Outputs:
 
 ```text

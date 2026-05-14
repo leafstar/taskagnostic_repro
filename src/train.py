@@ -19,7 +19,7 @@ if str(ROOT) not in sys.path:
 
 from src.dataset import build_datasets
 from src.model import build_model
-from src.utils import AverageMeter, choose_device, load_config, r2_score, resolve_path, rmse, save_json, set_seed
+from src.utils import AverageMeter, choose_device, load_config, r2_score, resolve_path, rmse, save_json, set_seed, target_metric_labels
 
 
 def _collate(batch: list[dict[str, Any]]) -> dict[str, Any]:
@@ -144,12 +144,13 @@ def train(config: dict[str, Any], force_cache: bool = False) -> Path:
     best_val = float("inf")
     best_path = ckpt_dir / "best.pt"
     history_path = ckpt_dir / "history.csv"
+    metric_labels = target_metric_labels(train_ds.target_names)
+    fieldnames = ["epoch", "train_loss", "val_loss"]
+    for label in metric_labels:
+        fieldnames.extend([f"val_r2_{label}", f"val_rmse_{label}"])
     history_path.parent.mkdir(parents=True, exist_ok=True)
     with history_path.open("w", newline="", encoding="utf-8") as f:
-        writer_csv = csv.DictWriter(
-            f,
-            fieldnames=["epoch", "train_loss", "val_loss", "val_r2_hip", "val_r2_knee", "val_rmse_hip", "val_rmse_knee"],
-        )
+        writer_csv = csv.DictWriter(f, fieldnames=fieldnames)
         writer_csv.writeheader()
         for epoch in range(1, int(config["train"]["epochs"]) + 1):
             train_loss, _, _ = run_epoch(
@@ -167,23 +168,21 @@ def train(config: dict[str, Any], force_cache: bool = False) -> Path:
                 "epoch": epoch,
                 "train_loss": train_loss,
                 "val_loss": val_loss,
-                "val_r2_hip": float(val_r2[0]),
-                "val_r2_knee": float(val_r2[1]),
-                "val_rmse_hip": float(val_rmse[0]),
-                "val_rmse_knee": float(val_rmse[1]),
             }
+            metric_text: list[str] = []
+            for i, label in enumerate(metric_labels):
+                row[f"val_r2_{label}"] = float(val_r2[i])
+                row[f"val_rmse_{label}"] = float(val_rmse[i])
+                writer.add_scalar(f"r2/{label}", float(val_r2[i]), epoch)
+                writer.add_scalar(f"rmse/{label}", float(val_rmse[i]), epoch)
+                metric_text.append(f"{label}={val_r2[i]:.3f}/{val_rmse[i]:.3f}")
             writer_csv.writerow(row)
             f.flush()
             writer.add_scalar("loss/train", train_loss, epoch)
             writer.add_scalar("loss/val", val_loss, epoch)
-            writer.add_scalar("r2/hip", float(val_r2[0]), epoch)
-            writer.add_scalar("r2/knee", float(val_r2[1]), epoch)
-            writer.add_scalar("rmse/hip", float(val_rmse[0]), epoch)
-            writer.add_scalar("rmse/knee", float(val_rmse[1]), epoch)
             print(
                 f"epoch {epoch:03d} train={train_loss:.6f} val={val_loss:.6f} "
-                f"R2 hip/knee={val_r2[0]:.3f}/{val_r2[1]:.3f} "
-                f"RMSE hip/knee={val_rmse[0]:.3f}/{val_rmse[1]:.3f}"
+                f"R2/RMSE {' '.join(metric_text)}"
             )
 
             metrics = {k: float(v) for k, v in row.items() if k != "epoch"}

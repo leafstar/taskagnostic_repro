@@ -95,6 +95,27 @@ def rmse(y_true: np.ndarray, y_pred: np.ndarray) -> np.ndarray:
     return np.sqrt(((np.asarray(y_true) - np.asarray(y_pred)) ** 2).mean(axis=0))
 
 
+def short_target_label(name: str) -> str:
+    base = str(name).split(".")[-1]
+    base = re.sub(r"_moment$", "", base, flags=re.IGNORECASE)
+    base = re.sub(r"^hip_flexion_", "hip_", base, flags=re.IGNORECASE)
+    base = re.sub(r"^knee_angle_", "knee_", base, flags=re.IGNORECASE)
+    base = re.sub(r"^ankle_angle_", "ankle_", base, flags=re.IGNORECASE)
+    base = re.sub(r"[^0-9A-Za-z_]+", "_", base).strip("_").lower()
+    return base or "target"
+
+
+def target_metric_labels(target_names: list[str]) -> list[str]:
+    labels: list[str] = []
+    seen: dict[str, int] = {}
+    for name in target_names:
+        label = short_target_label(name)
+        count = seen.get(label, 0)
+        seen[label] = count + 1
+        labels.append(label if count == 0 else f"{label}_{count + 1}")
+    return labels
+
+
 def compile_patterns(patterns: Iterable[str]) -> list[re.Pattern[str]]:
     return [re.compile(p, re.IGNORECASE) for p in patterns if p]
 
