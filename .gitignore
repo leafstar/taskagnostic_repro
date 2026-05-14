@@ -2,12 +2,14 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 pytest-cache-files-*/
+.pytest-tmp/
 .venv/
 runs/
 checkpoints/
 reports/
 data/raw/
 data/processed/
+tools/discovery_smoke_root/
 *.mat
 *.zip
 *.npz

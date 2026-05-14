@@ -555,14 +555,20 @@ def discover_trials(
     if max_subjects is not None:
         subject_dirs = subject_dirs[: int(max_subjects)]
     files: list[Path] = []
-    for subject in subject_dirs:
-        files.extend(sorted(subject.glob(trial_glob)))
+    if trial_glob in {"**/ik/*.mat", "**/ik/*.MAT", "**/ik/*.[mM][aA][tT]"}:
+        search_roots = subject_dirs if subject_dirs else [root]
+        for subject in search_roots:
+            for ik_dir in subject.rglob("ik"):
+                files.extend(sorted(p for p in ik_dir.iterdir() if p.is_file() and p.suffix.lower() == ".mat"))
+    if not files:
+        for subject in subject_dirs:
+            files.extend(sorted(subject.glob(trial_glob)))
     if not files:
         files = sorted(root.glob(trial_glob))
     excludes = compile_patterns(exclude_path_patterns)
     if excludes:
         files = [p for p in files if not any(pattern.search(p.as_posix()) for pattern in excludes)]
-    return files
+    return sorted(set(files))
 
 
 def load_trials_from_config(config: dict[str, Any]) -> list[TrialData]:
